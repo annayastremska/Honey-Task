@@ -1,0 +1,15 @@
+# Сирі дані й особисті файли — поза git
+*.zip
+*.pdf
+*.csv
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+
+# Python
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+.env
