@@ -54,4 +54,14 @@ select 'денні старі: виручка тесту = виручка тес
 union all
 select 'проміжні старі на 25.08 = фінальна виручка старих',
        (select sum(revenue) from user_metrics where population = 'old'),
-       (select sum(revenue) from interim_old where look_date = date '2022-08-25');
+       (select sum(revenue) from interim_old where look_date = date '2022-08-25')
+
+union all
+select 'нові 01–07.08: активні дні 0–6 = активні дні в основних метриках',
+       (select sum(active_days) from user_metrics where population = 'new' and reg_date <= date '2022-08-07'),
+       (select sum(active_0_6) from new_long)
+
+union all
+select 'нові 01–07.08: денна таблиця 0–17 = активні дні 0–6 + 7–17',
+       (select sum(active_0_6 + active_7_17) from new_long),
+       (select sum(active_users) from new_long_daily);
