@@ -1,6 +1,7 @@
-# Завдання 1: частка неатрибутованих реєстрацій по джерелах.
-# Метод A — ланцюжок по періодах запуску джерел; перевірка B — одна модель на всіх днях.
+# Завдання 1: який % реєстрацій кожного джерела не атрибутується.
 # Методологія: hypotheses/t1-attribution.md, розділ «Погоджена методологія».
+
+library(dplyr)
 
 data_path   <- Sys.getenv("T1_DATA", "task1(attribution).csv")
 n_boot      <- as.integer(Sys.getenv("T1_N_BOOT", "2000"))
@@ -14,94 +15,116 @@ sources <- setdiff(names(raw), c("day", "unattributed"))
 empty_days <- raw$day[rowSums(raw[, -1]) == 0]
 d <- raw[rowSums(raw[, -1]) > 0, ]
 
-# Період = набір активних джерел; новий період починається з першого дня нового джерела
-launch  <- sort(sapply(sources, function(s) min(d$day[d[[s]] > 0])))
-sources <- names(launch)
-d$period <- findInterval(d$day, launch)
+# Джерела в порядку запуску; новий період починається з першого дня нового джерела
+launch_day <- sort(sapply(sources, function(s) min(d$day[d[[s]] > 0])))
+sources    <- names(launch_day)
+d$period   <- findInterval(d$day, launch_day)
 
-to_unattr <- function(attributed, share) attributed * share / (1 - share)
-
-# ---- Метод A
-chain_shares <- function(d) {
-  share <- setNames(rep(NA_real_, length(sources)), sources)
-  for (i in seq_along(sources)) {
-    p <- d[d$period == i, ]
-    expected <- sum(vapply(sources[seq_len(i - 1)],
-                           function(s) to_unattr(sum(p[[s]]), share[[s]]), numeric(1)))
-    rest <- sum(p$unattributed) - expected
-    share[i] <- rest / (sum(p[[sources[i]]]) + rest)
-  }
-  share
+period_totals <- function(d) {
+  d %>%
+    group_by(period) %>%
+    summarise(across(all_of(c(sources, "unattributed")), sum))
 }
 
-# Бутстреп по днях усередині періодів, щоб кожен повтор мав усі періоди
-boot_ci <- function(d, fun, n) {
-  idx_by_period <- split(seq_len(nrow(d)), d$period)
+# Скільки неатрибутованих дає джерело, якщо відомі його атрибутовані й частка
+expected_unattributed <- function(attributed, share) {
+  attributed * share / (1 - share)
+}
+
+
+# ---- Метод A: ланцюжок по періодах
+# У періоді нового джерела віднімаємо очікуване від старих; решта — від нового
+chain_shares <- function(d) {
+  totals <- period_totals(d)
+  shares <- c()
+  for (i in seq_along(sources)) {
+    new_source <- sources[i]
+    p <- totals[totals$period == i, ]
+
+    expected <- 0
+    for (s in names(shares)) {
+      expected <- expected + expected_unattributed(p[[s]], shares[[s]])
+    }
+
+    rest <- p$unattributed - expected
+    shares[new_source] <- rest / (p[[new_source]] + rest)
+  }
+  shares
+}
+
+# Інтервал: перевибірка днів усередині кожного періоду, 2,5% і 97,5% перцентилі
+bootstrap_ci <- function(d, n) {
   draws <- replicate(n, {
-    idx <- unlist(lapply(idx_by_period, function(i) i[sample.int(length(i), replace = TRUE)]))
-    fun(d[idx, ])
+    resampled <- d %>%
+      group_by(period) %>%
+      slice_sample(prop = 1, replace = TRUE) %>%
+      ungroup()
+    chain_shares(resampled)
   })
   apply(draws, 1, quantile, c(0.025, 0.975))
 }
 
-# ---- Перевірка B
-# Неатрибутовані за день — пуассонівський лічильник із середнім Σ k_s · attributed_s;
-# k ≥ 0 тримає частку k / (1 + k) у межах 0–100%
+
+# ---- Перевірка B: одна модель на всіх днях
+# Неатрибутовані за день ≈ Σ k · атрибутовані джерела; k підбираються разом
+# за пуассонівською правдоподібністю. k ≥ 0, тож частка k / (1 + k) — від 0 до 100%
 model_shares <- function(d) {
-  X <- as.matrix(d[, sources]); y <- d$unattributed
-  nll <- function(k) { mu <- pmax(X %*% k, 1e-9); sum(mu - y * log(mu)) }
-  k <- optim(rep(0.1, length(sources)), nll, method = "L-BFGS-B", lower = 0)$par
+  attributed <- as.matrix(d[, sources])
+  neg_loglik <- function(k) {
+    expected <- attributed %*% k
+    sum(expected - d$unattributed * log(expected))
+  }
+  k <- optim(rep(0.1, length(sources)), neg_loglik,
+             method = "L-BFGS-B", lower = 1e-6)$par
   setNames(k / (1 + k), sources)
 }
 
-# ---- Розбіжність: частка джерела окремо в кожному періоді, інші джерела — з A
-share_by_period <- function(d, src, share_a) {
-  periods <- sort(unique(d$period[d[[src]] > 0]))
-  others  <- setdiff(sources, src)
-  do.call(rbind, lapply(periods, function(i) {
-    p <- d[d$period == i, ]
-    active <- others[vapply(others, function(s) sum(p[[s]]) > 0, logical(1))]
-    expected <- sum(vapply(active, function(s) to_unattr(sum(p[[s]]), share_a[[s]]), numeric(1)))
-    rest <- sum(p$unattributed) - expected
-    data.frame(source = src, period = i, days = nrow(p),
-               from_day = min(p$day), to_day = max(p$day),
-               share_pct = round(100 * rest / (sum(p[[src]]) + rest), 2))
-  }))
+
+# ---- Якщо A і B розійшлись: частка джерела окремо в кожному періоді
+# Частки інших джерел беремо з A
+share_by_period <- function(d, source, shares_a) {
+  totals <- period_totals(d) %>% filter(.data[[source]] > 0)
+
+  expected <- 0
+  for (s in setdiff(sources, source)) {
+    expected <- expected + expected_unattributed(totals[[s]], shares_a[[s]])
+  }
+
+  rest <- totals$unattributed - expected
+  data.frame(source    = source,
+             period    = totals$period,
+             share_pct = round(100 * rest / (totals[[source]] + rest), 2))
 }
 
+
 # ---- Прогін
-share_a <- chain_shares(d)
-ci_a    <- boot_ci(d, chain_shares, n_boot)
-share_b <- model_shares(d)
+shares_a <- chain_shares(d)
+ci_a     <- bootstrap_ci(d, n_boot)
+shares_b <- model_shares(d)
 
 result <- data.frame(
   source     = sources,
-  launch_day = unname(launch),
-  days       = vapply(sources, function(s) sum(d[[s]] > 0), integer(1)),
-  attributed = vapply(sources, function(s) sum(d[[s]]), numeric(1)),
-  A_pct      = round(100 * share_a, 2),
+  launch_day = unname(launch_day),
+  attributed = colSums(d[, sources]),
+  A_pct      = round(100 * shares_a, 2),
   A_lo       = round(100 * ci_a[1, ], 2),
   A_hi       = round(100 * ci_a[2, ], 2),
-  B_pct      = round(100 * share_b, 2),
+  B_pct      = round(100 * shares_b, 2),
   row.names  = NULL
 )
 result$diff_pp  <- result$A_pct - result$B_pct
 result$diverged <- abs(result$diff_pp) > max_diff_pp
 
 cat("Виключені дні без даних:", empty_days, "\n\n")
-print(result, row.names = FALSE)
+print(result)
 
-flagged <- result$source[result$diverged]
-if (length(flagged) > 0) {
-  cat("\nРозбіжність > ", max_diff_pp, " в.п.: частка по періодах\n", sep = "")
-  by_period <- do.call(rbind, lapply(flagged, share_by_period, d = d, share_a = share_a))
-  print(by_period, row.names = FALSE)
+for (s in result$source[result$diverged]) {
+  by_period <- share_by_period(d, s, shares_a)
+  all_values <- c(result$A_pct[result$source == s],
+                  result$B_pct[result$source == s],
+                  by_period$share_pct)
 
-  # Діапазон для відповіді: від меншого до більшого з A, B і часток по періодах
-  cat("\nДіапазон для відповіді\n")
-  print(do.call(rbind, lapply(flagged, function(s) {
-    v <- c(result$A_pct[result$source == s], result$B_pct[result$source == s],
-           by_period$share_pct[by_period$source == s])
-    data.frame(source = s, min_pct = min(v), max_pct = max(v))
-  })), row.names = FALSE)
+  cat("\n", s, ": A і B розходяться більш ніж на ", max_diff_pp, " в.п.\n", sep = "")
+  print(by_period)
+  cat("Діапазон для відповіді: ", min(all_values), "–", max(all_values), "%\n", sep = "")
 }
