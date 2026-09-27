@@ -4,7 +4,7 @@
 library(dplyr)
 
 data_path   <- Sys.getenv("T1_DATA", "task1(attribution).csv")
-n_boot      <- as.integer(Sys.getenv("T1_N_BOOT", "2000"))
+n_boot      <- 2000
 max_diff_pp <- 1
 set.seed(42)
 
@@ -21,8 +21,8 @@ sources    <- names(launch_day)
 d$period   <- findInterval(d$day, launch_day)
 
 period_totals <- function(d) {
-  d %>%
-    group_by(period) %>%
+  d |>
+    group_by(period) |>
     summarise(across(all_of(c(sources, "unattributed")), sum))
 }
 
@@ -55,9 +55,9 @@ chain_shares <- function(d) {
 # Інтервал: перевибірка днів усередині кожного періоду, 2,5% і 97,5% перцентилі
 bootstrap_ci <- function(d, n) {
   draws <- replicate(n, {
-    resampled <- d %>%
-      group_by(period) %>%
-      slice_sample(prop = 1, replace = TRUE) %>%
+    resampled <- d |>
+      group_by(period) |>
+      slice_sample(prop = 1, replace = TRUE) |>
       ungroup()
     chain_shares(resampled)
   })
@@ -83,7 +83,7 @@ model_shares <- function(d) {
 # ---- Якщо A і B розійшлись: частка джерела окремо в кожному періоді
 # Частки інших джерел беремо з A
 share_by_period <- function(d, source, shares_a) {
-  totals <- period_totals(d) %>% filter(.data[[source]] > 0)
+  totals <- period_totals(d) |> filter(.data[[source]] > 0)
 
   expected <- 0
   for (s in setdiff(sources, source)) {
