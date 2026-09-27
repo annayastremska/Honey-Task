@@ -1,7 +1,7 @@
 # Завдання 1: який % реєстрацій кожного джерела не атрибутується.
 # Методологія: hypotheses/t1-attribution.md, розділ «Погоджена методологія».
 
-suppressPackageStartupMessages(library(dplyr))
+library(dplyr)
 
 data_path   <- Sys.getenv("T1_DATA", "task1(attribution).csv")
 n_boot      <- 2000
@@ -65,18 +65,11 @@ bootstrap_ci <- function(d, n) {
 }
 
 
-# ---- Перевірка B: одна модель на всіх днях
-# Неатрибутовані за день ≈ Σ k · атрибутовані джерела; k підбираються разом
-# за пуассонівською правдоподібністю. k ≥ 0, тож частка k / (1 + k) — від 0 до 100%
+# ---- Перевірка B: одна регресія на всіх днях
+# Неатрибутовані за день = Σ k · атрибутовані джерела; k — неатрибутовані на 1 атрибутовану
 model_shares <- function(d) {
-  attributed <- as.matrix(d[, sources])
-  neg_loglik <- function(k) {
-    expected <- attributed %*% k
-    sum(expected - d$unattributed * log(expected))
-  }
-  k <- optim(rep(0.1, length(sources)), neg_loglik,
-             method = "L-BFGS-B", lower = 1e-6)$par
-  setNames(k / (1 + k), sources)
+  k <- coef(lm(unattributed ~ 0 + google + facebook + tiktok + snapchat, data = d))
+  k / (1 + k)
 }
 
 
