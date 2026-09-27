@@ -1,6 +1,6 @@
 -- Хто в якій популяції аналізу і в яких розрізах.
 -- Нові: реєстрація 01.08–19.08, щоб повні 7 днів вмістились до 25.08.
--- Старі: реєстрація до 18.07, щоб мати повну базу 18.07–31.07.
+-- Старі: реєстрація до 01.08; база 18.07–31.07, у зареєстрованих пізніше 18.07 — коротша.
 -- Згода на листи ділить кожну популяцію на основну частину і контроль.
 
 create or replace table users_pop as
@@ -11,7 +11,7 @@ select
     cast(created_at as date) as reg_date,
     case
         when created_at >= date '2022-08-01' and cast(created_at as date) <= date '2022-08-19' then 'new'
-        when created_at < date '2022-07-18' then 'old'
+        when created_at < date '2022-08-01' then 'old'
         else 'excluded'
     end as population,
     case when is_validated then 'consent' else 'control' end as consent,
