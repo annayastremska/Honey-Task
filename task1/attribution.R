@@ -73,23 +73,6 @@ model_shares <- function(d) {
 }
 
 
-# ---- Якщо A і B розійшлись: частка джерела окремо в кожному періоді
-# Частки інших джерел беремо з A
-share_by_period <- function(d, source, shares_a) {
-  totals <- period_totals(d) |> filter(.data[[source]] > 0)
-
-  expected <- 0
-  for (s in setdiff(sources, source)) {
-    expected <- expected + expected_unattributed(totals[[s]], shares_a[[s]])
-  }
-
-  rest <- totals$unattributed - expected
-  data.frame(source    = source,
-             period    = totals$period,
-             share_pct = round(100 * rest / (totals[[source]] + rest), 2))
-}
-
-
 # ---- Прогін
 shares_a <- chain_shares(d)
 ci_a     <- bootstrap_ci(d, n_boot)
@@ -113,13 +96,3 @@ result$diverged <- abs(diff_pp) > max_diff_pp
 cat("Виключені дні без даних:", raw$day[no_data], "\n\n")
 print(result)
 
-for (s in result$source[result$diverged]) {
-  by_period <- share_by_period(d, s, shares_a)
-  all_values <- c(result$A_pct[result$source == s],
-                  result$B_pct[result$source == s],
-                  by_period$share_pct)
-
-  cat("\n", s, ": A і B розходяться більш ніж на ", max_diff_pp, " в.п.\n", sep = "")
-  print(by_period)
-  cat("Діапазон для відповіді: ", min(all_values), "–", max(all_values), "%\n", sep = "")
-}
