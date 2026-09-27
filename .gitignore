@@ -13,3 +13,6 @@ __pycache__/
 .ipynb_checkpoints/
 .venv/
 .env
+
+# Дані завдання 2 (опис полів — теж матеріал компанії)
+task2/data/

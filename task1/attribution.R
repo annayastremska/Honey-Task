@@ -3,7 +3,7 @@
 
 library(dplyr)
 
-data_path   <- Sys.getenv("T1_DATA", "task1(attribution).csv")
+data_path   <- Sys.getenv("T1_DATA", "task1/task1(attribution).csv")
 n_boot      <- 2000
 max_diff_pp <- 1
 set.seed(42)
