@@ -1,7 +1,7 @@
 # Завдання 1: який % реєстрацій кожного джерела не атрибутується.
 # Методологія: hypotheses/t1-attribution.md, розділ «Погоджена методологія».
 
-library(dplyr)
+suppressPackageStartupMessages(library(dplyr))
 
 data_path   <- Sys.getenv("T1_DATA", "task1(attribution).csv")
 n_boot      <- 2000
@@ -12,8 +12,8 @@ raw <- read.csv(data_path)
 sources <- setdiff(names(raw), c("day", "unattributed"))
 
 # День, де всі колонки 0, — відсутність даних, а не нуль реєстрацій
-empty_days <- raw$day[rowSums(raw[, -1]) == 0]
-d <- raw[rowSums(raw[, -1]) > 0, ]
+no_data <- rowSums(raw[, -1]) == 0
+d <- raw[!no_data, ]
 
 # Джерела в порядку запуску; новий період починається з першого дня нового джерела
 launch_day <- sort(sapply(sources, function(s) min(d$day[d[[s]] > 0])))
@@ -112,10 +112,12 @@ result <- data.frame(
   B_pct      = round(100 * shares_b, 2),
   row.names  = NULL
 )
-result$diff_pp  <- result$A_pct - result$B_pct
-result$diverged <- abs(result$diff_pp) > max_diff_pp
+# Різниця — з точних часток, щоб вердикт не залежав від округлення
+diff_pp <- 100 * (shares_a - shares_b)
+result$diff_pp  <- round(diff_pp, 2)
+result$diverged <- abs(diff_pp) > max_diff_pp
 
-cat("Виключені дні без даних:", empty_days, "\n\n")
+cat("Виключені дні без даних:", raw$day[no_data], "\n\n")
 print(result)
 
 for (s in result$source[result$diverged]) {
