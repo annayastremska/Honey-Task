@@ -96,3 +96,25 @@ result$diverged <- abs(diff_pp) > max_diff_pp
 cat("Виключені дні без даних:", raw$day[no_data], "\n\n")
 print(result)
 
+
+# ---- Графік: реєстрації по днях і запуски джерел
+suppressPackageStartupMessages(library(ggplot2))
+dir.create("task1/figures", showWarnings = FALSE)
+
+daily <- d |>
+  tidyr::pivot_longer(all_of(sources), names_to = "source", values_to = "registrations") |>
+  mutate(source = factor(source, levels = rev(sources)))
+
+plot <- ggplot(daily, aes(day, registrations)) +
+  geom_area(aes(fill = source)) +
+  geom_line(data = d, aes(day, unattributed, colour = "неатрибутовані"), linewidth = 0.8) +
+  geom_vline(xintercept = launch_day[-1], linetype = "dashed", colour = "#52514e") +
+  scale_fill_manual(values = c(google = "#2a78d6", facebook = "#eb6834",
+                               tiktok = "#1baf7a", snapchat = "#eda100"), name = "Атрибуються до") +
+  scale_colour_manual(values = c("неатрибутовані" = "#0b0b0b"), name = NULL) +
+  labs(title = "Реєстрації за день: атрибутовані за джерелом і неатрибутовані",
+       subtitle = "Пунктир — запуск facebook (день 107), tiktok (126), snapchat (140)",
+       x = "День", y = "Реєстрацій") +
+  theme_minimal(base_size = 11)
+
+ggsave("task1/figures/daily.png", plot, width = 10, height = 4.5, dpi = 110)
