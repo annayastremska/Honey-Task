@@ -30,3 +30,6 @@ task3/*.png
 
 # Робочі нотатки й протоколи — лише локально
 hypotheses/
+
+# Службові файли Windows
+desktop.ini
