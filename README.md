@@ -271,7 +271,7 @@ def recommend(pop):
 
 **Період:** останній тиждень 18–24.08.2022 порівняно з 11–17.08.2022. 25.08 не входить: реєстрацій за цей день у даних нема.
 
-**Дашборд у Tableau Public:** [Operational Dashboard](https://public.tableau.com/views/test-task-Honey/OperationalDashboard)
+**Дашборд у Tableau Public:** [Operational Dashboard](https://public.tableau.com/views/test-task-Honey/OperationalDashboard). Робоча книга з даними: [`task3/test-task-Honey.twbx`](task3/test-task-Honey.twbx).
 
 ![Дашборд](task3/figures/dashboard.png)
 

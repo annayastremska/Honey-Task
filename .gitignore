@@ -24,7 +24,6 @@ task2/data/
 task3/data/
 
 # Робоча книга Tableau містить вбудовані дані; логотип — матеріал компанії
-task3/*.twbx
 task3/*.twbr
 task3/*.png
 
