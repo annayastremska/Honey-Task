@@ -117,6 +117,25 @@ apply(draws, 1, quantile, c(0.025, 0.975))   # межі середніх 95% д�
 | Виручка, без згоди | 10,9 | 13,0 | +19% |
 | Візити, без згоди | 1,47 | 1,55 | +5% |
 
+```sql
+-- липень, до старту тесту: виручка й візити кожного старого користувача
+with revenue as (
+    select user_id, sum(amount) as revenue from transactions
+    where date between date '2022-07-01' and date '2022-07-31' group by user_id
+),
+visits_july as (
+    select user_id, count(*) as visits from visits
+    where date between date '2022-07-01' and date '2022-07-31' group by user_id
+)
+select u.id, u.split_group, u.is_validated,
+       coalesce(r.revenue, 0) as revenue,
+       coalesce(v.visits, 0)  as visits
+from read_csv_auto('users.csv') u
+left join revenue r     on r.user_id = u.id
+left join visits_july v on v.user_id = u.id
+where u.created_at < date '2022-07-01'
+```
+
 **Інше:** 10% платників дають 51% виручки; country_code і default_os жорстко зв'язані (4 комбінації); через тиждень після реєстрації заходить 14% користувачів.
 
 **Висновок — що це змінює в аналізі:**
