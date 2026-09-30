@@ -273,7 +273,7 @@ def recommend(pop):
 
 **Дашборд у Tableau Public:** [Operational Dashboard](https://public.tableau.com/views/test-task-Honey/OperationalDashboard). Робоча книга з даними: [`task3/test-task-Honey.twbx`](task3/test-task-Honey.twbx).
 
-![Дашборд](task3/figures/dashboard.png)
+![Дашборд](task3/figures/dashboard-v2.png)
 
 ### Частини
 1. **Ключові числа за тиждень:** активні, виручка, платники (з них уперше), ARPU, ARPPU, виручка з нового користувача за 7 днів (когорта 16–19.08).
