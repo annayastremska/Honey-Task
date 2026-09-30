@@ -27,3 +27,6 @@ task3/data/
 task3/*.twbx
 task3/*.twbr
 task3/*.png
+
+# Робочі нотатки й протоколи — лише локально
+hypotheses/
